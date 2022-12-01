@@ -12,8 +12,17 @@
   <input id="their-id"></input>
   <button id="make-call">発信</button>
   <video id="their-video" width="400px" autoplay muted playsinline></video>
+
+  <div>
+    <pre class="messages" id="js-messages"></pre>
+    <input type="text" id="js-local-text">
+    <button id="js-send-trigger">Send</button>
+  </div>
   <script>
   let localStream;
+  const messages = document.getElementById('js-messages');
+  const localText = document.getElementById('js-local-text');
+  const sendTrigger = document.getElementById('js-send-trigger');
 
   // カメラ映像取得
   navigator.mediaDevices.getUserMedia({video: true, audio: true})
@@ -45,6 +54,24 @@
     const theirID = document.getElementById('their-id').value;
     const mediaConnection = peer.call(theirID, localStream);
     setEventListener(mediaConnection);
+    const dataConnection = peer.connect(theirID);
+    dataConnection.once('open', async () => {
+      messages.textContent += `=== DataConnection has been opened ===\n`;
+
+      sendTrigger.addEventListener('click', onClickSend);
+    });
+
+    dataConnection.on('data', data => {
+      messages.textContent += `Remote: ${data}\n`;
+    });
+
+    function onClickSend() {
+      const data = localText.value;
+      dataConnection.send(data);
+
+      messages.textContent += `You: ${data}\n`;
+      localText.value = '';
+    }
   };
 
   // イベントリスナを設置する関数
@@ -56,10 +83,32 @@
       videoElm.play();
     });
   }
+
   //着信処理
   peer.on('call', mediaConnection => {
     mediaConnection.answer(localStream);
     setEventListener(mediaConnection);
+  });
+
+  // Register connected peer handler
+  peer.on('connection', dataConnection => {
+    dataConnection.once('open', async () => {
+      messages.textContent += `=== DataConnection has been opened ===\n`;
+
+      sendTrigger.addEventListener('click', onClickSend);
+    });
+
+    dataConnection.on('data', data => {
+      messages.textContent += `Remote: ${data}\n`;
+    });
+
+    function onClickSend() {
+      const data = localText.value;
+      dataConnection.send(data);
+
+      messages.textContent += `You: ${data}\n`;
+      localText.value = '';
+    }
   });
   </script>
 </body>
